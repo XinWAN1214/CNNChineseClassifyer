@@ -30,18 +30,23 @@ def clean_str(string):
     string = re.sub(r"\s{2,}", " ", string)
     return string.strip().lower()
 
-def save_vocabulary(vocabularyfile, vocabulary, vocabulary_inv):
+
+def save_vocabulary(vocabularyfile, vocabulary, vocabulary_inv, max_length):
     v_file = file(vocabularyfile,"wb")
     pickle.dump(vocabulary, v_file)
     pickle.dump(vocabulary_inv, v_file)
+    pickle.dump(max_length, v_file)
     v_file.close()
+
 
 def restore_vocabulary(vocabularyfile):
     v_file = file(vocabularyfile, "rb")
     vocabulary = pickle.load(v_file)
     vocabulary_inv = pickle.load(v_file)
+    max_length = pickle.load(v_file)
     v_file.close()
-    return vocabulary,vocabulary_inv
+    return vocabulary, vocabulary_inv, max_length
+
 
 def load_test_data(test_data_file):
     """
@@ -52,6 +57,7 @@ def load_test_data(test_data_file):
     test_examples = list(codecs.open(test_data_file, "r", 'utf-8').readlines())
     test_examples = [s.strip() for s in test_examples]
     return [list(jieba.cut(sent)) for sent in test_examples]
+
 
 def load_data_and_labels(positive_data_file, negative_data_file):
     """
@@ -73,19 +79,32 @@ def load_data_and_labels(positive_data_file, negative_data_file):
     y = np.concatenate([positive_labels, negative_labels], 0)
     return [x_text, y]
 
-def pad_sentences(sentences, padding_word="<PAD/>"):
-  """
-  Pads all sentences to the same length. The length is defined by the longest sentence.
-  Returns padded sentences.
-  """
-  sequence_length = max(len(x) for x in sentences)
-  padded_sentences = []
-  for i in range(len(sentences)):
-    sentence = sentences[i]
-    num_padding = sequence_length - len(sentence)
-    new_sentence = sentence + [padding_word] * num_padding
-    padded_sentences.append(new_sentence)
-  return padded_sentences
+
+def pad_sentences(sentences, max_length=0, padding_word="<PAD/>"):
+    """
+
+    :param sentences:
+    :param max_length:
+    :param padding_word:
+    :return:
+
+    Pads all sentences to the same length. The length is defined by the longest sentence.
+    Returns padded sentences.
+    """
+
+    if max_length:
+        sequence_length = max_length
+    else:
+        sequence_length = max(len(x) for x in sentences)
+
+    padded_sentences = []
+    for i in range(len(sentences)):
+        sentence = sentences[i]
+        num_padding = sequence_length - len(sentence)
+        new_sentence = sentence + [padding_word] * num_padding
+        padded_sentences.append(new_sentence)
+    return padded_sentences, sequence_length
+
 
 def build_vocab(sentences):
   """
@@ -100,6 +119,7 @@ def build_vocab(sentences):
   vocabulary = {x: i for i, x in enumerate(vocabulary_inv)}
   return [vocabulary, vocabulary_inv]
 
+
 def build_input_data(sentences, labels, vocabulary):
   """
   Maps sentencs and labels to vectors based on a vocabulary.
@@ -107,6 +127,7 @@ def build_input_data(sentences, labels, vocabulary):
   x = np.array([[vocabulary[word] for word in sentence] for sentence in sentences])
   y = np.array(labels)
   return [x, y]
+
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
@@ -125,4 +146,5 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
         for batch_num in range(num_batches_per_epoch):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
+            # print start_index, end_index
             yield shuffled_data[start_index:end_index]

@@ -4,9 +4,7 @@
 import tensorflow as tf
 import numpy as np
 import os
-import pandas
 import data_helpers
-from tensorflow.contrib import learn
 import csv
 
 # Parameters
@@ -14,7 +12,7 @@ import csv
 
 # Eval Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_string("checkpoint_dir", "runs/1480326269/checkpoints", "Checkpoint directory from training run")
+tf.flags.DEFINE_string("checkpoint_dir", "runs/1481184154/checkpoints", "Checkpoint directory from training run")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -28,16 +26,14 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
 print("")
 
-df = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/tobetrained.xlsx', encoding='utf-8')
-df = df.fillna(0)
-x_raw = list(df['nr'])
-y_test = None
+x_raw = data_helpers.load_test_data('/Users/Winnerineast/Documents/haodaifu/NewData/tobetrained.csv')
+
 
 # Map data into vocabulary
 vocab_path = os.path.join(FLAGS.checkpoint_dir, "..", "vocab")
-vocabulary, vocabulary_inv = data_helpers.restore_vocabulary(vocab_path)
-vocab_processor = learn.preprocessing.VocabularyProcessor.restore(vocab_path)
-
+vocabulary, vocabulary_inv, max_length = data_helpers.restore_vocabulary(vocab_path)
+sentences_padded, tmp_length = data_helpers.pad_sentences(x_raw, max_length)
+x_test, y_test = data_helpers.build_input_data(sentences_padded, None, vocabulary)
 
 print("\nEvaluating...\n")
 
@@ -69,19 +65,22 @@ with graph.as_default():
         # Collect the predictions here
         all_predictions = []
 
-        for x_test_batch in batches:
+        for x_test_batch in list(batches):
+            # print x_test_batch
             batch_predictions = sess.run(predictions, {input_x: x_test_batch, dropout_keep_prob: 1.0})
             all_predictions = np.concatenate([all_predictions, batch_predictions])
 
-# Print accuracy if y_test is defined
+        # Print accuracy if y_test is defined
+y_test = None
 if y_test is not None:
     correct_predictions = float(sum(all_predictions == y_test))
     print("Total number of test examples: {}".format(len(y_test)))
     print("Accuracy: {:g}".format(correct_predictions/float(len(y_test))))
 
 # Save the evaluation to a csv
+print all_predictions
 predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
 out_path = os.path.join(FLAGS.checkpoint_dir, "..", "prediction.csv")
 print("Saving evaluation to {0}".format(out_path))
 with open(out_path, 'w') as f:
-    csv.writer(f).writerows(predictions_human_readable)
+    csv.writer(f).writerows(predictions_human_readable.encode('utf-8'))

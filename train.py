@@ -50,22 +50,15 @@ print("")
 # Load data
 print("Loading data...")
 x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
+x_eval = data_helpers.load_test_data(FLAGS.test_data_file)
 
 # Pad sentences
-sentences_padded = data_helpers.pad_sentences(x_text)
-
-# when build vocabulary, needs to calculate test words
-sentences_padded_test = data_helpers.load_test_data(FLAGS.test_data_file)
-sentences_padded_all = sentences_padded + sentences_padded_test
+sentences_padded_all, max_length = data_helpers.pad_sentences(x_text+x_eval)
+sentences_padded, max_length = data_helpers.pad_sentences(x_text, max_length)
 
 # Build vocabulary
 vocabulary, vocabulary_inv = data_helpers.build_vocab(sentences_padded_all)
-print vocabulary
 x, y = data_helpers.build_input_data(sentences_padded, y, vocabulary)
-
-# max_document_length = max([len(x.split(" ")) for x in x_text])
-# vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-# x = np.array(list(vocab_processor.fit_transform(x_text)))
 
 # Randomly shuffle data
 np.random.seed(10)
@@ -106,6 +99,8 @@ with tf.Graph().as_default():
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
         # Keep track of gradient values and sparsity (optional)
+        embedding_var = tf.Variable(x_train)
+
         grad_summaries = []
         for g, v in grads_and_vars:
             if g is not None:
@@ -142,7 +137,7 @@ with tf.Graph().as_default():
         saver = tf.train.Saver(tf.all_variables())
 
         # Write vocabulary
-        data_helpers.save_vocabulary(os.path.join(out_dir, "vocab"), vocabulary, vocabulary_inv)
+        data_helpers.save_vocabulary(os.path.join(out_dir, "vocab"), vocabulary, vocabulary_inv, max_length)
 
         # Initialize all variables
         sess.run(tf.initialize_all_variables())
@@ -179,6 +174,7 @@ with tf.Graph().as_default():
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
             if writer:
                 writer.add_summary(summaries, step)
+
 
         # Generate batches
         batches = data_helpers.batch_iter(
