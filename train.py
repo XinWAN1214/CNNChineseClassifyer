@@ -15,9 +15,9 @@ from tensorflow.contrib import learn
 
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("positive_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/interview_pos.csv", "Data source for the positive data.")
-tf.flags.DEFINE_string("negative_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/interview_neg.csv", "Data source for the negative data.")
-tf.flags.DEFINE_string("test_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/tobetrained.csv", "Data source for the test data.")
+tf.flags.DEFINE_string("positive_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/refuse_pos.csv", "Data source for the positive data.")
+tf.flags.DEFINE_string("negative_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/refuse_neg.csv", "Data source for the negative data.")
+tf.flags.DEFINE_string("test_data_file", "/Users/Winnerineast/Documents/haodaifu/fulldata/tobetrained.csv", "Data source for the test data.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
@@ -50,7 +50,9 @@ print("")
 # Load data
 print("Loading data...")
 x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
+print("Training data has {:d} records.".format(len(x_text)))
 x_eval = data_helpers.load_test_data(FLAGS.test_data_file)
+print("Text to be predicted has {:d} records.".format(len(x_eval)))
 
 # Pad sentences
 sentences_padded_all, max_length = data_helpers.pad_sentences(x_text+x_eval)
@@ -59,10 +61,12 @@ sentences_padded, max_length = data_helpers.pad_sentences(x_text, max_length)
 # Build vocabulary
 vocabulary, vocabulary_inv = data_helpers.build_vocab(sentences_padded_all)
 x, y = data_helpers.build_input_data(sentences_padded, y, vocabulary)
+print("Vocabulary Size: {:d}".format(len(vocabulary)))
 
 # Randomly shuffle data
 np.random.seed(10)
 shuffle_indices = np.random.permutation(np.arange(len(y)))
+print("Random index: "+str(shuffle_indices))
 x_shuffled = x[shuffle_indices]
 y_shuffled = y[shuffle_indices]
 
@@ -70,7 +74,6 @@ y_shuffled = y[shuffle_indices]
 dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
 x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
 y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
-print("Vocabulary Size: {:d}".format(len(vocabulary)))
 print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
 

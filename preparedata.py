@@ -14,8 +14,8 @@ def getColumn(strcol,df):
     else:
         return -1
 
-# r id2, id, zx_id, zx_floor, nr, sj, block_id, interview, tel, surgery, chinese_medicine, nosurgery, notreatment, local_and_other, detailofdrugusing, uncertain, refuse, unrelated, I131
-# 0 u'id2', u'nr', u'block_id', u'tag', u'interview2', u'tel2', u'surgery2', u'chinese_medicine2', u'nosurgery2', u'notreatment2', u'local_and_other2', u'detailofdrugusing2', u'uncertain2', u'refuse2', u'unrelated2', u'id', u'block_id.1', u'interview', u'tel', u'surgery', u'chinese_medicine', u'nosurgery', u'notreatment', u'local_and_other', u'detailofdrugusing', u'uncertain', u'refuse', u'unrelated'
+# r id2, id, zx_id, zx_floor, nr, sj, block_id, interview, tel, surgery, chinese_medicine, nosurgery, notreatment, local_and_other, detailofdrugusing, uncertain, refuse, 1484129492, I131
+# 0 u'id2', u'nr', u'block_id', u'tag', u'interview2', u'tel2', u'surgery2', u'chinese_medicine2', u'nosurgery2', u'notreatment2', u'local_and_other2', u'detailofdrugusing2', u'uncertain2', u'refuse2', u'unrelated2', u'id', u'block_id.1', u'interview', u'tel', u'surgery', u'chinese_medicine', u'nosurgery', u'notreatment', u'local_and_other', u'detailofdrugusing', u'uncertain', u'refuse', u'1484129492'
 def insertIntoresult(src):
     return pandas.DataFrame({'id2':getColumn('id2',src),
                                 'id':getColumn('id',src),
@@ -34,7 +34,7 @@ def insertIntoresult(src):
                                 'detailofdrugusing':getColumn('detailofdrugusing',src),
                                 'uncertain':getColumn('uncertain',src),
                                 'refuse':getColumn('refuse',src),
-                                'unrelated':getColumn('unrelated',src),
+                                '1484129492':getColumn('1484129492',src),
                                 'interview2': getColumn('interview2', src),
                                 'tel2': getColumn('tel2', src),
                                 'surgery2': getColumn('surgery2', src),
@@ -49,7 +49,7 @@ def insertIntoresult(src):
                                 'I1312':getColumn('I1312',src)})
 
 
-'''
+
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',level=logging.INFO)
 
 # STEP1 ---------------- define original manual classification data as objects here.
@@ -81,7 +81,11 @@ d21 = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/21.xlsx'
 d22 = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/22.xlsx',encoding='utf-8')
 d23 = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/23.xlsx',encoding='utf-8')
 
+i = 0
 datalist = [d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21,d22,d23]
+for adataframe in datalist:
+    print("%d - %d" %(i, len(adataframe.index)))
+    i += 1
 
 currentColumns = list(df.columns.values)
 lengthOfcolumns = len(currentColumns)
@@ -93,25 +97,19 @@ badresult = pandas.DataFrame(columns=currentColumns)
 
 # STEP2 ---------------- loop all batches result and split them into consistant result (good result) and inconsistant result (bad result)
 
-for i in range(0,24):
+for i in range(0, 24):
     currentdf = datalist[i]
     currentColumns = list(currentdf.columns.values)
     lengthOfcolumns = len(currentColumns)
     tags = currentdf.groupby('tag').size()
     print('['+str(i)+']'+ str(tags[1]) + ' ' + str(lengthOfcolumns) + str(currentColumns))
-    # print(currentdf)
 
-    for j in range(0,len(currentdf.index)-1):
-        # print('this is '+str(j)+' in '+str(i))
+    for j in range(0, len(currentdf.index)-1):
         currentLine = currentdf.iloc[[j]]
-        # print(currentLine)
         if(int(currentLine['tag'])==1):
-            #print('find a tag =1')
             goodresult = goodresult.append(insertIntoresult(currentLine))
         else:
             badresult = badresult.append(insertIntoresult(currentLine))
-
-#print(result)
 
 # STEP3 ---------------- So good result will be used as training samples; bad result will be confirmed by testing.
 
@@ -124,35 +122,33 @@ badresult.to_excel('/Users/Winnerineast/Documents/haodaifu/NewData/badresult.xls
 # STEP4 ---------------- Knowing the categories are many, each time choose one type only.
 
 data = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/goodresult.xlsx', encoding='utf-8')
-
-# r id2, id, zx_id, zx_floor, nr, sj, block_id, interview, tel, surgery, chinese_medicine, nosurgery, notreatment, local_and_other, detailofdrugusing, uncertain, refuse, unrelated, I131
+# r id2, id, zx_id, zx_floor, nr, sj, block_id, interview, tel, surgery, chinese_medicine, nosurgery, notreatment, local_and_other, detailofdrugusing, uncertain, refuse, 1484129492, I131
 positive = pandas.DataFrame()
 negative = pandas.DataFrame()
 
 data = data.fillna(-1)
 
-types = ['interview', 'tel', 'surgery', 'chinese_medicine', 'nosurgery', 'notreatment', 'local_and_other', 'detailofdrugusing', 'uncertain', 'refuse', 'unrelated']
+types = ['interview', 'tel', 'surgery', 'chinese_medicine', 'nosurgery', 'notreatment', 'local_and_other', 'detailofdrugusing', 'uncertain', 'refuse']
 
 for type in types:
     print type
     grouped = data.groupby(type)
     if len(grouped.get_group(1)['nr']) > 0:
-        pandas.DataFrame(grouped.get_group(1)['nr']).to_csv('/Users/Winnerineast/Documents/haodaifu/NewData/'+type+'_pos.csv', header=False, encoding='utf-8')
+        pandas.DataFrame(grouped.get_group(1)['nr']).to_csv('/Users/Winnerineast/Documents/haodaifu/NewData/'+type
+                                                            + '_pos.csv', header=False, encoding='utf-8')
     if len(grouped.get_group(-1)['nr']) > 0:
-        pandas.DataFrame(grouped.get_group(-1)['nr']).to_csv('/Users/Winnerineast/Documents/haodaifu/NewData/'+type+'_neg.csv', header=False, encoding='utf-8')
+        pandas.DataFrame(grouped.get_group(-1)['nr']).to_csv('/Users/Winnerineast/Documents/haodaifu/NewData/'+type
+                                                             + '_neg.csv', header=False, encoding='utf-8')
 
 
 # STEP5 ---------------- Further process testing data as you wish
 
-# df = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/badresult.xlsx',encoding='utf-8')
-
-
 df = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/goodresult.xlsx', encoding='utf-8')
-i = 0
-with codecs.open('/Users/Winnerineast/Documents/haodaifu/NewData/jieba_goodresult.csv', 'w','utf-8') as result:
+
+with codecs.open('/Users/Winnerineast/Documents/haodaifu/NewData/jieba_goodresult.csv', 'w', 'utf-8') as result:
     for strline in df['nr']:
         # print strline
-        if isinstance(strline, (int,float)):
+        if isinstance(strline, (int, float)):
             continue
         else:
             seg_list = jieba.cut(strline)
@@ -170,9 +166,3 @@ pandas.DataFrame(df['nr']).to_csv('/Users/Winnerineast/Documents/haodaifu/NewDat
 
 df = pandas.read_excel('/Users/Winnerineast/Documents/haodaifu/NewData/badresult.xlsx', encoding='utf-8')
 pandas.DataFrame(df['nr']).to_csv('/Users/Winnerineast/Documents/haodaifu/NewData/tobetrained.csv', encoding='utf-8')
-
-'''
-test_examples = list(codecs.open('runs/1481242816/prediction.csv', 'r', 'utf-8').readlines())
-tobetrained =
-for s in test_examples:
-    print s

@@ -26,7 +26,7 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
 print("")
 
-x_raw = data_helpers.load_test_data('/Users/Winnerineast/Documents/haodaifu/NewData/tobetrained.csv')
+x_raw = data_helpers.load_test_data('/Users/Winnerineast/Documents/haodaifu/fulldata/tobetrained.csv')
 
 
 # Map data into vocabulary
