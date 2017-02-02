@@ -1,2 +1,7 @@
+tensorflow
+numpy
+codecs
+csv
+pandas
 jieba
 gensim
