@@ -1,18 +1,23 @@
-#! /usr/bin/env python
-# -*- coding:utf-8 -*-
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import tensorflow as tf
 import numpy as np
 import os
 import data_helpers
+import codecs
+from tensorflow.contrib import learn
 import csv
 
 # Parameters
 # ==================================================
 
+# Data Parameters
+tf.flags.DEFINE_string("test_data_file", "/Users/liling/Documents/haodaifu/fulldata/tobetrained.csv", "Data source for the positive data.")
+
 # Eval Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_string("checkpoint_dir", "runs/1481184154/checkpoints", "Checkpoint directory from training run")
+tf.flags.DEFINE_string("checkpoint_dir", "/Users/liling/PycharmProjects/cnn-text-classification-tf/runs/1485609762/checkpoints", "Checkpoint directory from training run")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -26,15 +31,11 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
 print("")
 
-x_raw = data_helpers.load_test_data('/Users/Winnerineast/Documents/haodaifu/fulldata/tobetrained.csv')
-
-
+x_raw = data_helpers.load_utf8_data(FLAGS.test_data_file)
 # Map data into vocabulary
 vocab_path = os.path.join(FLAGS.checkpoint_dir, "..", "vocab")
-vocabulary, vocabulary_inv, max_length = data_helpers.restore_vocabulary(vocab_path)
-sentences_padded, tmp_length = data_helpers.pad_sentences(x_raw, max_length)
-x_test, y_test = data_helpers.build_input_data(sentences_padded, None, vocabulary)
-
+vocab_processor = learn.preprocessing.VocabularyProcessor.restore(vocab_path)
+x_test = np.array(list(vocab_processor.transform(x_raw)))
 print("\nEvaluating...\n")
 
 # Evaluation
@@ -61,26 +62,22 @@ with graph.as_default():
 
         # Generate batches for one epoch
         batches = data_helpers.batch_iter(list(x_test), FLAGS.batch_size, 1, shuffle=False)
-        # print list(batches)
         # Collect the predictions here
         all_predictions = []
+        i = 0
 
-        for x_test_batch in list(batches):
-            # print x_test_batch
+        for x_test_batch in batches:
+            print("it's running on batch %d" % i)
+            i = i + 1
             batch_predictions = sess.run(predictions, {input_x: x_test_batch, dropout_keep_prob: 1.0})
             all_predictions = np.concatenate([all_predictions, batch_predictions])
 
-        # Print accuracy if y_test is defined
-y_test = None
-if y_test is not None:
-    correct_predictions = float(sum(all_predictions == y_test))
-    print("Total number of test examples: {}".format(len(y_test)))
-    print("Accuracy: {:g}".format(correct_predictions/float(len(y_test))))
-
 # Save the evaluation to a csv
-print all_predictions
 predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
 out_path = os.path.join(FLAGS.checkpoint_dir, "..", "prediction.csv")
 print("Saving evaluation to {0}".format(out_path))
-with open(out_path, 'w') as f:
-    csv.writer(f).writerows(predictions_human_readable.encode('utf-8'))
+csvfile = codecs.open(out_path, 'w',encoding='utf-8')
+writer = csv.writer(csvfile)
+for row in predictions_human_readable.tolist():
+    print(row[0]+','+row[1])
+    writer.writerow([row[0],row[1]])

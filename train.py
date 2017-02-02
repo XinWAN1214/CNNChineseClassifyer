@@ -1,5 +1,5 @@
-#! /usr/bin/env python
-# -*- coding:utf-8 -*-
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import tensorflow as tf
 import numpy as np
@@ -15,23 +15,22 @@ from tensorflow.contrib import learn
 
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("positive_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/refuse_pos.csv", "Data source for the positive data.")
-tf.flags.DEFINE_string("negative_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/refuse_neg.csv", "Data source for the negative data.")
-tf.flags.DEFINE_string("test_data_file", "/Users/Winnerineast/Documents/haodaifu/fulldata/tobetrained.csv", "Data source for the test data.")
+tf.flags.DEFINE_string("positive_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/unrelated_pos.csv", "Data source for the positive data.")
+tf.flags.DEFINE_string("negative_data_file", "/Users/Winnerineast/Documents/haodaifu/NewData/unrelated_neg.csv", "Data source for the negative data.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularizaion lambda (default: 0.0)")
+tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
-tf.flags.DEFINE_float("AdamOptimizerAccurancy",1e-3, "the optimization accurancy on Adam Optimizer (default: 1e-3")
+tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
@@ -44,33 +43,29 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 
-# Data Preparatopn
+# Data Preparation
 # ==================================================
 
 # Load data
-print("Loading data...")
-x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
-print("Training data has {:d} records.".format(len(x_text)))
-x_eval = data_helpers.load_test_data(FLAGS.test_data_file)
-print("Text to be predicted has {:d} records.".format(len(x_eval)))
-
-# Pad sentences
-sentences_padded_all, max_length = data_helpers.pad_sentences(x_text+x_eval)
-sentences_padded, max_length = data_helpers.pad_sentences(x_text, max_length)
+print("Loading training data...")
+x_text, y = data_helpers.load_utf8_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
+print("There are %d records in training data files." % (len(x_text)))
 
 # Build vocabulary
-vocabulary, vocabulary_inv = data_helpers.build_vocab(sentences_padded_all)
-x, y = data_helpers.build_input_data(sentences_padded, y, vocabulary)
-print("Vocabulary Size: {:d}".format(len(vocabulary)))
+max_document_length = max([len(x.split(" ")) for x in x_text])
+vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
 
 # Randomly shuffle data
 np.random.seed(10)
+x = np.array(list(vocab_processor.fit_transform(x_text)))
 shuffle_indices = np.random.permutation(np.arange(len(y)))
-print("Random index: "+str(shuffle_indices))
+print("Random data factor: {:s}".format(shuffle_indices))
 x_shuffled = x[shuffle_indices]
 y_shuffled = y[shuffle_indices]
 
 # Split train/test set
+# TODO: This is very crude, should use cross-validation
 dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
 x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
 y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
@@ -89,7 +84,7 @@ with tf.Graph().as_default():
         cnn = TextCNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
-            vocab_size=len(vocabulary),
+            vocab_size=len(vocab_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
             filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
             num_filters=FLAGS.num_filters,
@@ -97,13 +92,11 @@ with tf.Graph().as_default():
 
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(FLAGS.AdamOptimizerAccurancy)
+        optimizer = tf.train.AdamOptimizer(1e-3)
         grads_and_vars = optimizer.compute_gradients(cnn.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
         # Keep track of gradient values and sparsity (optional)
-        embedding_var = tf.Variable(x_train)
-
         grad_summaries = []
         for g, v in grads_and_vars:
             if g is not None:
@@ -137,10 +130,10 @@ with tf.Graph().as_default():
         checkpoint_prefix = os.path.join(checkpoint_dir, "model")
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
-        saver = tf.train.Saver(tf.global_variables())
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
-        data_helpers.save_vocabulary(os.path.join(out_dir, "vocab"), vocabulary, vocabulary_inv, max_length)
+        vocab_processor.save(os.path.join(out_dir, "vocab"))
 
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
@@ -177,7 +170,6 @@ with tf.Graph().as_default():
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
             if writer:
                 writer.add_summary(summaries, step)
-
 
         # Generate batches
         batches = data_helpers.batch_iter(
