@@ -1,3 +1,6 @@
+nose
+sphinx
+
 tensorflow
 numpy
 codecs
